@@ -2,7 +2,7 @@ const chalk = require('chalk')
 const parse = require('ndjson').parse
 const through = require('through2').obj
 const prettyFactory = require('pino-pretty')
-const { prettifyTime } = require('pino-pretty/lib/utils')
+const { prettifyTime, prettifyObject } = require('pino-pretty/lib/utils')
 const prettyMs = require('pretty-ms')
 
 /**
@@ -14,6 +14,7 @@ const prettyMs = require('pretty-ms')
  * @property {boolean} [relativeUrl] (default: false)
  * @property {boolean} [lax] (default: false) When `true` the JSON parser will silently discard unparseable logs, e.g.
  * from nodemon
+ * @property {boolean} [extra] (default: false) When `true` the any other extra fields in the logs will be printed as is
  */
 
 /** @type {HttpPrintOptions} */
@@ -22,7 +23,8 @@ const defaultOptions = {
   translateTime: false,
   relativeUrl: false,
   all: false,
-  lax: false
+  lax: false,
+  extra: false,
 }
 
 const ctx = new chalk.Instance({ level: 3 })
@@ -45,14 +47,19 @@ function format (o, opts) {
   var time = prettifyTime({ log: o, translateFormat: opts.translateTime })
   var url = (opts.relativeUrl ? '' : ('http://' + o.req.headers.host)) + o.req.url
   var responseTime = prettyMs(o.responseTime)
+  var extraFields = opts.extra ? prettifyObject({
+    input: o,
+    eol: ' ',
+    skipKeys: ['req', 'res'],
+  }) : '';
 
   if (!opts.colorize) {
-    return time + ' ' + o.req.method + ' ' + url + ' ' + o.res.statusCode + ' ' + responseTime + '\n'
+    return time + ' ' + o.req.method + ' ' + url + ' ' + o.res.statusCode + ' ' + responseTime + ' ' + extraFields + '\n'
   }
 
   const levelColor = colored[o.level] || colored.default
   return time + ' ' + colored.method(o.req.method) + ' ' +
-    url + ' ' + levelColor(o.res.statusCode) + ' ' + responseTime + '\n'
+    url + ' ' + levelColor(o.res.statusCode) + ' ' + responseTime + ' ' + extraFields + '\n'
 }
 
 /**
